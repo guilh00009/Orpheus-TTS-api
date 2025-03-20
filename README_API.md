@@ -5,7 +5,7 @@ A Python Flask API for the Orpheus Text-to-Speech system.
 ## Features
 
 - Text-to-speech conversion with multiple voice options
-- Support for emotional tags (laugh, sigh, etc.)
+- Emotion control with embedded tags
 - Streaming audio output
 - Downloadable WAV files
 - Web interface for easy testing
@@ -40,6 +40,25 @@ A Python Flask API for the Orpheus Text-to-Speech system.
 
 4. Access the web interface at: http://localhost:8080
 
+## Using Emotion Tags
+
+You can add emotion tags directly in your text to control the speech. Simply insert the tag where you want the emotion to occur.
+
+Examples:
+- "Hi <laugh> how are you today?"
+- "I can't believe it <sigh>"
+- "That's so funny <chuckle>"
+
+Available emotion tags:
+- `<laugh>`
+- `<chuckle>`
+- `<sigh>`
+- `<cough>`
+- `<sniffle>`
+- `<groan>`
+- `<yawn>`
+- `<gasp>`
+
 ## API Endpoints
 
 ### Web Interface
@@ -49,16 +68,15 @@ A Python Flask API for the Orpheus Text-to-Speech system.
 ### TTS Endpoints
 - `GET /api/tts/stream` - Stream audio in real-time
   - Query parameters:
-    - `text` (required): Text to convert to speech
+    - `text` (required): Text to convert to speech (can include emotion tags)
     - `voice` (optional): Voice to use (default: "tara")
     - `temperature` (optional): Generation temperature (default: 0.4)
     - `repetition_penalty` (optional): Repetition penalty (default: 1.1)
 
 - `POST /api/tts/generate` - Generate and download WAV file
   - JSON body parameters:
-    - `text` (required): Text to convert to speech
+    - `text` (required): Text to convert to speech (can include emotion tags)
     - `voice` (optional): Voice to use (default: "tara")
-    - `emotions` (optional): Array of emotion tags to apply
     - `temperature` (optional): Generation temperature (default: 0.4)
     - `repetition_penalty` (optional): Repetition penalty (default: 1.1)
     - `max_tokens` (optional): Maximum tokens (default: 2000)
@@ -66,7 +84,7 @@ A Python Flask API for the Orpheus Text-to-Speech system.
 
 ### Information Endpoints
 - `GET /api/voices` - Get list of available voices
-- `GET /api/emotions` - Get list of available emotion tags
+- `GET /api/emotion-tags` - Get list of available emotion tags
 
 ## Available Voices
 
@@ -79,22 +97,11 @@ A Python Flask API for the Orpheus Text-to-Speech system.
 - zac
 - zoe
 
-## Available Emotion Tags
-
-- laugh
-- chuckle
-- sigh
-- cough
-- sniffle
-- groan
-- yawn
-- gasp
-
 ## Examples
 
 ### Streaming TTS with curl
 ```bash
-curl "http://localhost:8080/api/tts/stream?text=Hello%20world&voice=tara" -o output.wav
+curl "http://localhost:8080/api/tts/stream?text=Hello%20%3Claugh%3E%20world&voice=tara" -o output.wav
 ```
 
 ### Generating a WAV file with Python
@@ -104,9 +111,8 @@ import json
 
 url = "http://localhost:8080/api/tts/generate"
 data = {
-    "text": "Hello, this is a test of the Orpheus TTS system.",
+    "text": "Hello, this is a test <laugh> of the Orpheus TTS system.",
     "voice": "leah",
-    "emotions": ["laugh"],
     "temperature": 0.5,
     "repetition_penalty": 1.2
 }
@@ -123,7 +129,7 @@ For client-side integration, here's a simple JavaScript example:
 
 ```javascript
 // Stream audio
-const text = "Hello world";
+const text = "Hello <laugh> world";
 const voice = "tara";
 const streamUrl = `/api/tts/stream?text=${encodeURIComponent(text)}&voice=${voice}`;
 
@@ -138,9 +144,8 @@ async function generateAndDownload() {
             'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-            text: "Hello world",
-            voice: "tara",
-            emotions: ["laugh"]
+            text: "Hello <laugh> world",
+            voice: "tara"
         })
     });
     

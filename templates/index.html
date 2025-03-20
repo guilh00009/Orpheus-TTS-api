@@ -53,22 +53,6 @@
             width: 100%;
             margin-top: 15px;
         }
-        .emotions-container {
-            margin: 15px 0;
-        }
-        .emotion-tag {
-            display: inline-block;
-            background-color: #e9e9e9;
-            padding: 5px 10px;
-            margin: 5px;
-            border-radius: 15px;
-            font-size: 14px;
-            cursor: pointer;
-        }
-        .emotion-tag.selected {
-            background-color: #4CAF50;
-            color: white;
-        }
         .options-container {
             display: flex;
             flex-wrap: wrap;
@@ -90,6 +74,25 @@
             border-radius: 4px;
             width: 80px;
         }
+        .info-box {
+            background-color: #e9f7fe;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        .emotion-tag {
+            display: inline-block;
+            background-color: #eaeaea;
+            padding: 5px 8px;
+            margin: 3px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .emotion-tag:hover {
+            background-color: #d0d0d0;
+        }
     </style>
 </head>
 <body>
@@ -97,6 +100,17 @@
     
     <div class="container">
         <h2>Text to Speech</h2>
+        
+        <div class="info-box">
+            <strong>Emotion Tags:</strong> You can add emotion tags directly in your text to control the speech. 
+            For example: "Hi <laugh> how are you today?" or "I can't believe it <sigh>".
+            <div id="emotion-tags-container" style="margin-top: 10px;">
+                <strong>Available tags:</strong> <span id="tags-list"></span>
+            </div>
+            <div style="margin-top: 10px;">
+                <small>Click on a tag to insert it at the cursor position in your text.</small>
+            </div>
+        </div>
         
         <textarea id="textInput" rows="5" placeholder="Enter text to convert to speech..."></textarea>
         
@@ -115,11 +129,6 @@
                 <label for="repPenaltyInput">Repetition Penalty:</label>
                 <input type="number" id="repPenaltyInput" value="1.1" min="1.0" max="2.0" step="0.1">
             </div>
-        </div>
-        
-        <div class="emotions-container">
-            <p>Emotions (optional):</p>
-            <div id="emotionTags"></div>
         </div>
         
         <button id="streamButton">Stream Audio</button>
@@ -142,22 +151,43 @@
                 });
             });
         
-        // Fetch available emotions
-        fetch('/api/emotions')
+        // Fetch available emotion tags
+        fetch('/api/emotion-tags')
             .then(response => response.json())
             .then(data => {
-                const emotionTags = document.getElementById('emotionTags');
-                data.emotions.forEach(emotion => {
-                    const tag = document.createElement('span');
-                    tag.classList.add('emotion-tag');
-                    tag.dataset.emotion = emotion.id;
-                    tag.textContent = emotion.name;
-                    tag.addEventListener('click', () => {
-                        tag.classList.toggle('selected');
+                const tagsContainer = document.getElementById('tags-list');
+                data.emotionTags.forEach(tag => {
+                    const tagSpan = document.createElement('span');
+                    tagSpan.className = 'emotion-tag';
+                    tagSpan.textContent = tag;
+                    tagSpan.addEventListener('click', () => {
+                        insertTextAtCursor(document.getElementById('textInput'), tag);
                     });
-                    emotionTags.appendChild(tag);
+                    tagsContainer.appendChild(tagSpan);
                 });
             });
+        
+        // Function to insert text at cursor position in textarea
+        function insertTextAtCursor(textarea, text) {
+            const startPos = textarea.selectionStart;
+            const endPos = textarea.selectionEnd;
+            const scrollTop = textarea.scrollTop;
+            
+            const textBefore = textarea.value.substring(0, startPos);
+            const textAfter = textarea.value.substring(endPos, textarea.value.length);
+            
+            textarea.value = textBefore + text + textAfter;
+            
+            // Move cursor position after the inserted text
+            textarea.selectionStart = startPos + text.length;
+            textarea.selectionEnd = startPos + text.length;
+            
+            // Preserve scroll position
+            textarea.scrollTop = scrollTop;
+            
+            // Focus back on the textarea
+            textarea.focus();
+        }
         
         // Stream audio button
         document.getElementById('streamButton').addEventListener('click', () => {
@@ -191,17 +221,10 @@
             const temperature = parseFloat(document.getElementById('tempInput').value);
             const repetitionPenalty = parseFloat(document.getElementById('repPenaltyInput').value);
             
-            // Get selected emotions
-            const selectedEmotions = [];
-            document.querySelectorAll('.emotion-tag.selected').forEach(tag => {
-                selectedEmotions.push(tag.dataset.emotion);
-            });
-            
             // Prepare request data
             const requestData = {
                 text: text,
                 voice: voice,
-                emotions: selectedEmotions,
                 temperature: temperature,
                 repetition_penalty: repetitionPenalty
             };

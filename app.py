@@ -15,8 +15,8 @@ engine = OrpheusModel(model_name="canopylabs/orpheus-tts-0.1-finetune-prod")
 # Available voices
 VOICES = ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
 
-# Available emotions
-EMOTIONS = ["laugh", "chuckle", "sigh", "cough", "sniffle", "groan", "yawn", "gasp"]
+# Available emotion tags that can be embedded in text
+EMOTION_TAGS = ["<laugh>", "<chuckle>", "<sigh>", "<cough>", "<sniffle>", "<groan>", "<yawn>", "<gasp>"]
 
 def create_wav_header(sample_rate=24000, bits_per_sample=16, channels=1):
     byte_rate = sample_rate * channels * bits_per_sample // 8
@@ -62,10 +62,18 @@ def docs():
             table { border-collapse: collapse; width: 100%; }
             th, td { text-align: left; padding: 8px; border-bottom: 1px solid #ddd; }
             th { background-color: #f2f2f2; }
+            .note { background-color: #e9f7fe; padding: 15px; border-radius: 5px; margin: 15px 0; border-left: 4px solid #4CAF50; }
         </style>
     </head>
     <body>
         <h1>Orpheus TTS API Documentation</h1>
+        
+        <div class="note">
+            <strong>Emotion Tags:</strong> You can add emotion tags directly in your text to control the speech. 
+            For example: "Hi <laugh> how are you today?" or "I can't believe it <sigh>".
+            <br><br>
+            Available tags: &lt;laugh&gt;, &lt;chuckle&gt;, &lt;sigh&gt;, &lt;cough&gt;, &lt;sniffle&gt;, &lt;groan&gt;, &lt;yawn&gt;, &lt;gasp&gt;
+        </div>
         
         <div class="endpoint">
             <h2>Stream TTS</h2>
@@ -75,7 +83,7 @@ def docs():
             <h3>Parameters:</h3>
             <table>
                 <tr><th>Name</th><th>Type</th><th>Description</th></tr>
-                <tr><td>text</td><td>string</td><td>Required. The text to convert to speech</td></tr>
+                <tr><td>text</td><td>string</td><td>Required. The text to convert to speech. Can include emotion tags like &lt;laugh&gt;.</td></tr>
                 <tr><td>voice</td><td>string</td><td>Optional. Voice to use (default: tara)</td></tr>
                 <tr><td>temperature</td><td>float</td><td>Optional. Generation temperature (default: 0.4)</td></tr>
                 <tr><td>repetition_penalty</td><td>float</td><td>Optional. Repetition penalty (default: 1.1)</td></tr>
@@ -90,9 +98,8 @@ def docs():
             <h3>JSON Body Parameters:</h3>
             <table>
                 <tr><th>Name</th><th>Type</th><th>Description</th></tr>
-                <tr><td>text</td><td>string</td><td>Required. The text to convert to speech</td></tr>
+                <tr><td>text</td><td>string</td><td>Required. The text to convert to speech. Can include emotion tags like &lt;laugh&gt;.</td></tr>
                 <tr><td>voice</td><td>string</td><td>Optional. Voice to use (default: tara)</td></tr>
-                <tr><td>emotions</td><td>array</td><td>Optional. Array of emotion tags to apply</td></tr>
                 <tr><td>temperature</td><td>float</td><td>Optional. Generation temperature (default: 0.4)</td></tr>
                 <tr><td>repetition_penalty</td><td>float</td><td>Optional. Repetition penalty (default: 1.1)</td></tr>
                 <tr><td>max_tokens</td><td>integer</td><td>Optional. Maximum number of tokens (default: 2000)</td></tr>
@@ -107,9 +114,9 @@ def docs():
         </div>
         
         <div class="endpoint">
-            <h2>Emotions</h2>
-            <p>Get list of available emotion tags</p>
-            <pre>GET /api/emotions</pre>
+            <h2>Emotion Tags</h2>
+            <p>Get list of available emotion tags that can be embedded in the text</p>
+            <pre>GET /api/emotion-tags</pre>
         </div>
     </body>
     </html>
@@ -157,12 +164,6 @@ def generate_tts():
     
     if voice not in VOICES:
         return jsonify({"error": f"Invalid voice. Available voices: {', '.join(VOICES)}"}), 400
-    
-    # Process emotion tags if provided
-    emotions = data.get('emotions', [])
-    for emotion in emotions:
-        if emotion in EMOTIONS:
-            text = f"{text} <{emotion}>"
     
     # Get generation parameters
     temperature = float(data.get('temperature', 0.4))
@@ -220,12 +221,10 @@ def get_voices():
         ]
     })
 
-@app.route('/api/emotions')
-def get_emotions():
+@app.route('/api/emotion-tags')
+def get_emotion_tags():
     return jsonify({
-        "emotions": [
-            {"id": emotion, "name": emotion.capitalize()} for emotion in EMOTIONS
-        ]
+        "emotionTags": EMOTION_TAGS
     })
 
 if __name__ == '__main__':
