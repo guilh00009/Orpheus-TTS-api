@@ -1,0 +1,4 @@
+flask==2.3.3
+orpheus-speech
+vllm==0.7.3
+gunicorn==21.2.0 
