@@ -48,7 +48,7 @@ def load_vozia_model():
         print("Downloading Vozia-3b-lora model...")
         # Download the model files
         model_path = snapshot_download(repo_id="Guilherme34/Vozia-3b-lora", 
-                        allow_patterns="*.safetensors",
+                        allow_patterns=["*.safetensors", "*.json", "*.md"],
                         local_dir='./vozia_model')
         
         print(f"Model downloaded to {model_path}")
@@ -68,26 +68,72 @@ def load_vozia_model():
         # Apply embedding weights to lm_head
         ori_model.lm_head.weight.data = ori_model.model.embed_tokens.weight.data.clone()
         
-        print("Loading and applying model weights...")
-        # Load the LoRA weights - handle model files with different naming patterns
-        # First find all .safetensors files in the model directory
+        print("Loading and applying LoRA adapter weights...")
+        # Get all safetensors files in the model directory
         model_files = [f for f in os.listdir(model_path) if f.endswith('.safetensors')]
         print(f"Found model files: {model_files}")
         
         if not model_files:
             raise FileNotFoundError("No .safetensors files found in downloaded model directory")
             
-        # For models that use split files (like model-00001-of-00003.safetensors)
-        # Load each file and apply the weights
+        # Process each model file - apply LoRA weights as deltas
         for model_file in model_files:
             file_path = os.path.join(model_path, model_file)
             print(f"Loading weights from: {file_path}")
             
-            state_dict = load_file(file_path)
+            # Properly apply LoRA weights as deltas
+            adapter_weights = load_file(file_path)
             
-            # Apply weights to the model
-            missing, unexpected = ori_model.load_state_dict(state_dict, strict=False)
-            print(f"Missing keys: {len(missing)}, Unexpected keys: {len(unexpected)}")
+            # Get the model state dict that will be modified
+            state_dict = ori_model.state_dict()
+            
+            # Find all LoRA keys in the adapter weights
+            lora_keys = [k for k in adapter_weights.keys() if '.lora_' in k]
+            base_keys = sorted(list(set([k.split('.lora')[0] for k in lora_keys])))
+            
+            print(f"Applying {len(base_keys)} LoRA modules")
+            
+            # Apply LoRA weights to the base model
+            for key in base_keys:
+                if 'embed_tokens' in key:
+                    lora_a = key + '.lora_embedding_A'
+                    lora_b = key + '.lora_embedding_B'
+                else:
+                    lora_a = key + '.lora_A.weight'
+                    lora_b = key + '.lora_B.weight'
+                
+                # Get the target key (removing 'base_model.model.' prefix if present)
+                target_key = key.replace('base_model.model.', '') + '.weight'
+                if target_key not in state_dict:
+                    print(f"Warning: Target key {target_key} not found in model")
+                    continue
+                
+                # Get the weights
+                if lora_a in adapter_weights and lora_b in adapter_weights:
+                    a_weight = adapter_weights[lora_a].to(ori_model.device)
+                    b_weight = adapter_weights[lora_b].to(ori_model.device)
+                    
+                    # Get the original weight and prepare it for update
+                    weight = state_dict[target_key]
+                    
+                    # For non-embedding layers, we need to transpose
+                    if 'embed_tokens' not in key:
+                        weight = weight.t()
+                    
+                    # Apply LoRA formula: W = W + BA (with scaling)
+                    with torch.no_grad():
+                        scaling = 1.5  # Common LoRA scaling factor
+                        delta = torch.matmul(b_weight.t(), a_weight.t()) * scaling
+                        
+                        if delta.shape == weight.shape:
+                            weight.add_(delta)
+                        else:
+                            print(f"Warning: Shape mismatch for {target_key}")
+                            print(f"Delta shape: {delta.shape}, Weight shape: {weight.shape}")
+                            
+                    # Transpose back for non-embedding layers
+                    if 'embed_tokens' not in key:
+                        weight = weight.t()
         
         print("Loading SNAC model...")
         # Load SNAC model for audio decoding
