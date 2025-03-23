@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Orpheus TTS Client</title>
+    <title>Vozia TTS Client</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -31,7 +31,7 @@
             font-family: inherit;
             margin-bottom: 15px;
         }
-        select, button {
+        select, button, input {
             padding: 10px;
             border-radius: 4px;
             border: 1px solid #ddd;
@@ -52,6 +52,25 @@
         audio {
             width: 100%;
             margin-top: 15px;
+        }
+        .info-box {
+            background-color: #e9f7fe;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #4CAF50;
+        }
+        .emotion-tag {
+            display: inline-block;
+            background-color: #eaeaea;
+            padding: 5px 8px;
+            margin: 3px;
+            border-radius: 15px;
+            font-size: 12px;
+            cursor: pointer;
+        }
+        .emotion-tag:hover {
+            background-color: #d0d0d0;
         }
         .options-container {
             display: flex;
@@ -74,82 +93,143 @@
             border-radius: 4px;
             width: 80px;
         }
-        .info-box {
-            background-color: #e9f7fe;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid #4CAF50;
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
         }
-        .emotion-tag {
-            display: inline-block;
-            background-color: #eaeaea;
-            padding: 5px 8px;
-            margin: 3px;
-            border-radius: 15px;
-            font-size: 12px;
+        .tab {
+            padding: 10px 20px;
             cursor: pointer;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
         }
-        .emotion-tag:hover {
-            background-color: #d0d0d0;
+        .tab.active {
+            background-color: #4CAF50;
+            color: white;
+            border: 1px solid #4CAF50;
+            border-bottom: none;
+        }
+        .tab:not(.active) {
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-bottom: none;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .status {
+            margin-top: 10px;
+            font-style: italic;
+            color: #666;
         }
     </style>
 </head>
 <body>
-    <h1>Orpheus TTS Client</h1>
+    <h1>Vozia TTS Client</h1>
     
-    <div class="container">
-        <h2>Text to Speech</h2>
-        
-        <div class="info-box">
-            <strong>Emotion Tags:</strong> You can add emotion tags directly in your text to control the speech. 
-            For example: "Hi <laugh> how are you today?" or "I can't believe it <sigh>".
-            <div id="emotion-tags-container" style="margin-top: 10px;">
-                <strong>Available tags:</strong> <span id="tags-list"></span>
-            </div>
-            <div style="margin-top: 10px;">
-                <small>Click on a tag to insert it at the cursor position in your text.</small>
-            </div>
-        </div>
-        
-        <textarea id="textInput" rows="5" placeholder="Enter text to convert to speech..."></textarea>
-        
-        <div class="options-container">
-            <div class="option-group">
-                <label for="voiceSelect">Voice:</label>
-                <select id="voiceSelect"></select>
+    <div class="tabs">
+        <div class="tab active" data-tab="vozia">Vozia Model</div>
+        <div class="tab" data-tab="orpheus">Orpheus Model</div>
+    </div>
+    
+    <div class="tab-content active" id="vozia-tab">
+        <div class="container">
+            <h2>Vozia TTS</h2>
+            
+            <div class="info-box">
+                <strong>Emotion Tags:</strong> You can add emotion tags directly in your text to control the speech. 
+                For example: "Hi <laugh> how are you today?" or "I can't believe it <sigh>".
+                <div id="emotion-tags-container" style="margin-top: 10px;">
+                    <strong>Available tags:</strong> <span id="tags-list"></span>
+                </div>
+                <div style="margin-top: 10px;">
+                    <small>Click on a tag to insert it at the cursor position in your text.</small>
+                </div>
             </div>
             
-            <div class="option-group">
-                <label for="tempInput">Temperature:</label>
-                <input type="number" id="tempInput" value="0.4" min="0.1" max="2.0" step="0.1">
+            <textarea id="textInput" rows="5" placeholder="Enter text to convert to speech..."></textarea>
+            
+            <div class="options-container">
+                <div class="option-group">
+                    <label for="speakerInput">Speaker Name:</label>
+                    <input type="text" id="speakerInput" value="Speaker">
+                </div>
+                
+                <div class="option-group">
+                    <label for="tempInput">Temperature:</label>
+                    <input type="number" id="tempInput" value="0.9" min="0.1" max="2.0" step="0.1">
+                </div>
+                
+                <div class="option-group">
+                    <label for="repPenaltyInput">Repetition Penalty:</label>
+                    <input type="number" id="repPenaltyInput" value="1.1" min="1.0" max="2.0" step="0.1">
+                </div>
             </div>
             
-            <div class="option-group">
-                <label for="repPenaltyInput">Repetition Penalty:</label>
-                <input type="number" id="repPenaltyInput" value="1.1" min="1.0" max="2.0" step="0.1">
-            </div>
+            <button id="streamButton">Stream Audio</button>
+            <button id="downloadButton">Generate & Download</button>
+            
+            <div class="status" id="statusVozia"></div>
+            
+            <audio id="audioPlayer" controls></audio>
         </div>
-        
-        <button id="streamButton">Stream Audio</button>
-        <button id="downloadButton">Generate & Download</button>
-        
-        <audio id="audioPlayer" controls></audio>
+    </div>
+    
+    <div class="tab-content" id="orpheus-tab">
+        <div class="container">
+            <h2>Orpheus TTS</h2>
+            
+            <div class="info-box">
+                <strong>Emotion Tags:</strong> You can add emotion tags directly in your text to control the speech.
+            </div>
+            
+            <textarea id="orpheusTextInput" rows="5" placeholder="Enter text to convert to speech..."></textarea>
+            
+            <div class="options-container">
+                <div class="option-group">
+                    <label for="voiceSelect">Voice:</label>
+                    <select id="voiceSelect"></select>
+                </div>
+                
+                <div class="option-group">
+                    <label for="orpheusTempInput">Temperature:</label>
+                    <input type="number" id="orpheusTempInput" value="0.4" min="0.1" max="2.0" step="0.1">
+                </div>
+                
+                <div class="option-group">
+                    <label for="orpheusRepPenaltyInput">Repetition Penalty:</label>
+                    <input type="number" id="orpheusRepPenaltyInput" value="1.1" min="1.0" max="2.0" step="0.1">
+                </div>
+            </div>
+            
+            <button id="orpheusStreamButton">Stream Audio</button>
+            <button id="orpheusDownloadButton">Generate & Download</button>
+            
+            <div class="status" id="statusOrpheus"></div>
+            
+            <audio id="orpheusAudioPlayer" controls></audio>
+        </div>
     </div>
 
     <script>
-        // Fetch available voices
-        fetch('/api/voices')
-            .then(response => response.json())
-            .then(data => {
-                const voiceSelect = document.getElementById('voiceSelect');
-                data.voices.forEach(voice => {
-                    const option = document.createElement('option');
-                    option.value = voice.id;
-                    option.textContent = voice.name;
-                    voiceSelect.appendChild(option);
-                });
+        // Tab functionality
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabName = tab.getAttribute('data-tab');
+                
+                // Update active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+                
+                // Update active content
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                document.getElementById(`${tabName}-tab`).classList.add('active');
             });
+        });
         
         // Fetch available emotion tags
         fetch('/api/emotion-tags')
@@ -164,6 +244,19 @@
                         insertTextAtCursor(document.getElementById('textInput'), tag);
                     });
                     tagsContainer.appendChild(tagSpan);
+                });
+            });
+        
+        // Fetch available Orpheus voices
+        fetch('/api/orpheus/voices')
+            .then(response => response.json())
+            .then(data => {
+                const voiceSelect = document.getElementById('voiceSelect');
+                data.voices.forEach(voice => {
+                    const option = document.createElement('option');
+                    option.value = voice.id;
+                    option.textContent = voice.name;
+                    voiceSelect.appendChild(option);
                 });
             });
         
@@ -189,6 +282,8 @@
             textarea.focus();
         }
         
+        // ---- Vozia Model Functions ----
+        
         // Stream audio button
         document.getElementById('streamButton').addEventListener('click', () => {
             const text = document.getElementById('textInput').value;
@@ -197,16 +292,27 @@
                 return;
             }
             
-            const voice = document.getElementById('voiceSelect').value;
+            const speaker = document.getElementById('speakerInput').value;
             const temperature = document.getElementById('tempInput').value;
             const repetitionPenalty = document.getElementById('repPenaltyInput').value;
             
-            const url = `/api/tts/stream?text=${encodeURIComponent(text)}&voice=${voice}&temperature=${temperature}&repetition_penalty=${repetitionPenalty}`;
+            // Update status
+            document.getElementById('statusVozia').textContent = 'Generating audio, please wait...';
+            
+            const url = `/api/tts/stream?text=${encodeURIComponent(text)}&speaker=${encodeURIComponent(speaker)}&temperature=${temperature}&repetition_penalty=${repetitionPenalty}`;
             
             const audioPlayer = document.getElementById('audioPlayer');
             audioPlayer.src = url;
             audioPlayer.load();
-            audioPlayer.play();
+            audioPlayer.play().catch(err => console.error("Playback error:", err));
+            
+            audioPlayer.onended = () => {
+                document.getElementById('statusVozia').textContent = 'Audio playback complete';
+            };
+            
+            audioPlayer.onplaying = () => {
+                document.getElementById('statusVozia').textContent = 'Audio streaming...';
+            };
         });
         
         // Generate and download button
@@ -217,14 +323,17 @@
                 return;
             }
             
-            const voice = document.getElementById('voiceSelect').value;
+            const speaker = document.getElementById('speakerInput').value;
             const temperature = parseFloat(document.getElementById('tempInput').value);
             const repetitionPenalty = parseFloat(document.getElementById('repPenaltyInput').value);
+            
+            // Update status
+            document.getElementById('statusVozia').textContent = 'Generating audio file, please wait...';
             
             // Prepare request data
             const requestData = {
                 text: text,
-                voice: voice,
+                speaker: speaker,
                 temperature: temperature,
                 repetition_penalty: repetitionPenalty
             };
@@ -241,6 +350,96 @@
                 if (!response.ok) {
                     throw new Error('Network response was not ok');
                 }
+                document.getElementById('statusVozia').textContent = 'Audio generated successfully';
+                return response.blob();
+            })
+            .then(blob => {
+                // Create a download link for the file
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.style.display = 'none';
+                a.href = url;
+                a.download = 'vozia_tts_audio.wav';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+            })
+            .catch(error => {
+                console.error('Error generating audio:', error);
+                document.getElementById('statusVozia').textContent = 'Error generating audio';
+                alert('Error generating audio. Please try again.');
+            });
+        });
+        
+        // ---- Orpheus Model Functions ----
+        
+        // Stream audio button
+        document.getElementById('orpheusStreamButton').addEventListener('click', () => {
+            const text = document.getElementById('orpheusTextInput').value;
+            if (!text) {
+                alert('Please enter some text');
+                return;
+            }
+            
+            const voice = document.getElementById('voiceSelect').value;
+            const temperature = document.getElementById('orpheusTempInput').value;
+            const repetitionPenalty = document.getElementById('orpheusRepPenaltyInput').value;
+            
+            // Update status
+            document.getElementById('statusOrpheus').textContent = 'Generating audio, please wait...';
+            
+            const url = `/api/orpheus/stream?text=${encodeURIComponent(text)}&voice=${voice}&temperature=${temperature}&repetition_penalty=${repetitionPenalty}`;
+            
+            const audioPlayer = document.getElementById('orpheusAudioPlayer');
+            audioPlayer.src = url;
+            audioPlayer.load();
+            audioPlayer.play().catch(err => console.error("Playback error:", err));
+            
+            audioPlayer.onended = () => {
+                document.getElementById('statusOrpheus').textContent = 'Audio playback complete';
+            };
+            
+            audioPlayer.onplaying = () => {
+                document.getElementById('statusOrpheus').textContent = 'Audio streaming...';
+            };
+        });
+        
+        // Generate and download button
+        document.getElementById('orpheusDownloadButton').addEventListener('click', () => {
+            const text = document.getElementById('orpheusTextInput').value;
+            if (!text) {
+                alert('Please enter some text');
+                return;
+            }
+            
+            const voice = document.getElementById('voiceSelect').value;
+            const temperature = parseFloat(document.getElementById('orpheusTempInput').value);
+            const repetitionPenalty = parseFloat(document.getElementById('orpheusRepPenaltyInput').value);
+            
+            // Update status
+            document.getElementById('statusOrpheus').textContent = 'Generating audio file, please wait...';
+            
+            // Prepare request data
+            const requestData = {
+                text: text,
+                voice: voice,
+                temperature: temperature,
+                repetition_penalty: repetitionPenalty
+            };
+            
+            // Send POST request
+            fetch('/api/orpheus/generate', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(requestData)
+            })
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                document.getElementById('statusOrpheus').textContent = 'Audio generated successfully';
                 return response.blob();
             })
             .then(blob => {
@@ -256,6 +455,7 @@
             })
             .catch(error => {
                 console.error('Error generating audio:', error);
+                document.getElementById('statusOrpheus').textContent = 'Error generating audio';
                 alert('Error generating audio. Please try again.');
             });
         });
