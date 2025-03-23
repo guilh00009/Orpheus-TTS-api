@@ -7,6 +7,7 @@ import time
 import io
 import torch
 import numpy as np
+import traceback
 
 app = Flask(__name__, template_folder='templates')
 
@@ -41,14 +42,17 @@ def load_vozia_model():
         # Import necessary modules for Vozia model
         from transformers import AutoTokenizer, AutoModelForCausalLM
         from huggingface_hub import snapshot_download
-        from safetensors import safe_open
+        from safetensors.torch import load_file
         from snac import SNAC
         
         print("Downloading Vozia-3b-lora model...")
-        # Download the LoRA adapter
-        snapshot_download(repo_id="Guilherme34/Vozia-3b-lora", 
+        # Download the model files
+        model_path = snapshot_download(repo_id="Guilherme34/Vozia-3b-lora", 
                         allow_patterns="*.safetensors",
-                        local_dir='./')
+                        local_dir='./vozia_model')
+        
+        print(f"Model downloaded to {model_path}")
+        print("Files in model directory:", os.listdir(model_path))
         
         print("Loading base model and tokenizer...")
         # Load the base model and tokenizer
@@ -64,33 +68,26 @@ def load_vozia_model():
         # Apply embedding weights to lm_head
         ori_model.lm_head.weight.data = ori_model.model.embed_tokens.weight.data.clone()
         
-        print("Applying LoRA adapter...")
-        # Load and apply the LoRA adapter
-        state_dict = ori_model.state_dict()
+        print("Loading and applying model weights...")
+        # Load the LoRA weights - handle model files with different naming patterns
+        # First find all .safetensors files in the model directory
+        model_files = [f for f in os.listdir(model_path) if f.endswith('.safetensors')]
+        print(f"Found model files: {model_files}")
         
-        f = safe_open("adapter_model.safetensors", framework="pt", device="cuda" if torch.cuda.is_available() else "cpu")
-        keys = f.keys()
-        keys = sorted(list(set([k.split('.lora')[0] for k in keys if '.lora' in k])))
-        
-        for k in keys:
-            k_ori = k.replace('base_model.model.', '') + '.weight'
-            if 'embed_tokens' in k:
-                post_A = '.lora_embedding_A'
-                post_B = '.lora_embedding_B'
-            else:
-                post_A = '.lora_A.weight'
-                post_B = '.lora_B.weight'
-            A = k + post_A
-            B = k + post_B
+        if not model_files:
+            raise FileNotFoundError("No .safetensors files found in downloaded model directory")
             
-            W = state_dict[k_ori]
-            if 'embed_tokens' not in k:
-                W = W.t()
-                
-            A = f.get_tensor(A)
-            B = f.get_tensor(B)
-            with torch.no_grad():
-                W.addmm_(A.t(), B.t(), alpha=1.5)
+        # For models that use split files (like model-00001-of-00003.safetensors)
+        # Load each file and apply the weights
+        for model_file in model_files:
+            file_path = os.path.join(model_path, model_file)
+            print(f"Loading weights from: {file_path}")
+            
+            state_dict = load_file(file_path)
+            
+            # Apply weights to the model
+            missing, unexpected = ori_model.load_state_dict(state_dict, strict=False)
+            print(f"Missing keys: {len(missing)}, Unexpected keys: {len(unexpected)}")
         
         print("Loading SNAC model...")
         # Load SNAC model for audio decoding
@@ -104,6 +101,7 @@ def load_vozia_model():
     
     except Exception as e:
         print(f"Error loading Vozia model: {str(e)}")
+        print(f"Stack trace: {traceback.format_exc()}")
         return False
 
 def load_orpheus_model():
