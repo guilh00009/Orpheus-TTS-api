@@ -17,9 +17,15 @@ class CustomOrpheusModel(OrpheusModel):
         super().__init__(*args, **kwargs)
         self._request_ids = set()
         self._lock = threading.Lock()
+        self._active_requests = 0
+        self._active_requests_lock = threading.Lock()
     
     def generate_speech(self, prompt, **kwargs):
         """Override generate_speech to handle duplicate request IDs"""
+        # Increment active requests counter
+        with self._active_requests_lock:
+            self._active_requests += 1
+        
         # Generate a unique request_id if not provided
         if 'request_id' not in kwargs:
             with self._lock:
@@ -44,11 +50,19 @@ class CustomOrpheusModel(OrpheusModel):
         
         # Call the parent implementation with our modified kwargs
         try:
-            return super().generate_speech(**kwargs)
+            # Store all generated chunks
+            chunks = []
+            for chunk in super().generate_speech(**kwargs):
+                chunks.append(chunk)
+                yield chunk
         finally:
             # Clean up the request_id from our tracking set when done
             with self._lock:
                 self._request_ids.discard(kwargs['request_id'])
+            
+            # Decrement active requests counter
+            with self._active_requests_lock:
+                self._active_requests -= 1
 
 # Initialize the Orpheus TTS model with our custom wrapper
 engine = CustomOrpheusModel(model_name="canopylabs/orpheus-tts-0.1-finetune-prod")
