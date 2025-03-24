@@ -5,12 +5,50 @@ import uuid
 import wave
 import time
 import io
+import asyncio
+import threading
 from orpheus_tts import OrpheusModel
 
 app = Flask(__name__, template_folder='templates')
 
-# Initialize the Orpheus TTS model
-engine = OrpheusModel(model_name="canopylabs/orpheus-tts-0.1-finetune-prod")
+# Custom wrapper around OrpheusModel to handle duplicate request IDs
+class CustomOrpheusModel(OrpheusModel):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._request_ids = set()
+        self._lock = threading.Lock()
+    
+    def generate_speech(self, prompt, **kwargs):
+        """Override generate_speech to handle duplicate request IDs"""
+        # Generate a unique request_id if not provided
+        if 'request_id' not in kwargs:
+            with self._lock:
+                # Create a new unique ID
+                request_id = f"req-{uuid.uuid4().hex[:8]}"
+                kwargs['request_id'] = request_id
+        else:
+            # If request_id is provided but already exists, make it unique
+            with self._lock:
+                request_id = kwargs['request_id']
+                if request_id in self._request_ids:
+                    # Modify the request_id to make it unique
+                    new_request_id = f"{request_id}-{uuid.uuid4().hex[:8]}"
+                    kwargs['request_id'] = new_request_id
+        
+        # Add the request_id to our tracking set
+        with self._lock:
+            self._request_ids.add(kwargs['request_id'])
+        
+        # Call the parent implementation with our modified kwargs
+        try:
+            return super().generate_speech(prompt, **kwargs)
+        finally:
+            # Clean up the request_id from our tracking set when done
+            with self._lock:
+                self._request_ids.discard(kwargs['request_id'])
+
+# Initialize the Orpheus TTS model with our custom wrapper
+engine = CustomOrpheusModel(model_name="canopylabs/orpheus-tts-0.1-finetune-prod")
 
 # Available voices
 VOICES = ["tara", "leah", "jess", "leo", "dan", "mia", "zac", "zoe"]
