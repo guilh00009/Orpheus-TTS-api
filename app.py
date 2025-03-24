@@ -39,9 +39,12 @@ class CustomOrpheusModel(OrpheusModel):
         with self._lock:
             self._request_ids.add(kwargs['request_id'])
         
+        # Include prompt in kwargs instead of passing it as a positional argument
+        kwargs['prompt'] = prompt
+        
         # Call the parent implementation with our modified kwargs
         try:
-            return super().generate_speech(prompt, **kwargs)
+            return super().generate_speech(**kwargs)
         finally:
             # Clean up the request_id from our tracking set when done
             with self._lock:
